@@ -1,11 +1,242 @@
-# quant_v4
-quant strategy owned by zw
-Here's a concise English overview of your project:
+# A 股超短线量化交易系统 v4.0
+
+基于深度学习的 A 股超短线量化交易系统，使用 DNN/MLP 模型预测次日涨幅，实现今日买入明日卖出的交易策略。
+
+## 项目特点
+
+- ✅ **模块化架构**: 按功能拆分为多个独立模块，代码清晰易维护
+- ✅ **深度学习**: 使用 TensorFlow/Keras 构建 DNN 模型
+- ✅ **严格时序**: 严禁使用未来数据，只使用截止到前一交易日的数据
+- ✅ **多维特征**: 量价、均线、技术指标等 80+ 维特征
+- ✅ **智能选股**: 自动过滤 ST、退市、停牌、次新股等不合格股票
+- ✅ **风控筛选**: 流动性、波动率、涨跌停等多重风控
+- ✅ **回测验证**: 内置简单回测引擎，验证策略有效性
+
+## 项目结构
+
+```
+./
+├── config.py          # 全局配置（Token、参数等）
+├── data_loader.py     # 数据获取与清洗
+├── features.py        # 特征工程
+├── dataset.py         # 数据集构建与标准化
+├── model.py           # 深度学习模型定义与训练
+├── predictor.py       # 预测与选股
+├── main.py            # 程序入口
+├── requirements.txt   # 依赖库
+└── README.md          # 说明文档
+```
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. 配置 Tushare Token
+
+在 `config.py` 文件中设置您的 Tushare Token：
+
+```python
+TUSHARE_TOKEN = "your_token_here"
+```
+
+> 获取 Token: https://tushare.pro/register
+
+### 3. 训练模型
+
+首次使用需要先训练模型：
+
+```bash
+python main.py --mode train
+```
+
+训练过程包括：
+- 获取 A 股历史数据
+- 特征工程（80+ 维特征）
+- 数据标准化
+- 模型训练（带早停和学习率衰减）
+- 模型保存
+
+### 4. 预测选股
+
+训练完成后，运行预测获取今日推荐股票：
+
+```bash
+python main.py --mode predict
+```
+
+或直接运行（默认为预测模式）：
+
+```bash
+python main.py
+```
+
+输出示例：
+```
+==================================================
+          今日推荐买入股票 (Top 10)
+==================================================
+
+股票代码     股票名称   行业      当前价格   预测涨幅
+000001.SZ   平安银行   银行      12.50     3.45%
+600036.SH   招商银行   银行      35.20     3.12%
+...
+```
+
+### 5. 回测（可选）
+
+验证策略历史表现：
+
+```bash
+python main.py --mode backtest
+```
+
+## 功能模块说明
+
+### config.py - 配置文件
+- Tushare Token 配置
+- 数据参数（起始日期、存储路径等）
+- 股票筛选参数（过滤条件、流动性要求等）
+- 特征工程参数（均线周期、技术指标参数等）
+- 模型参数（网络结构、训练参数等）
+- 选股参数（推荐数量、预测阈值等）
+
+### data_loader.py - 数据加载
+- 获取 A 股股票列表
+- 获取历史日线数据
+- 过滤 ST、退市、停牌股票
+- 剔除次新股（上市不足 N 天）
+- 流动性筛选（成交量、成交额）
+- 波动率筛选
+- 数据清洗
+
+### features.py - 特征工程
+- **价格特征**: 收益率、振幅、上下影线、K线形态等
+- **成交量特征**: 量价关系、成交额变化等
+- **均线特征**: MA5/10/20/30/60、价格与均线偏离度等
+- **技术指标**: RSI、MACD、布林带、ATR 等
+- **动量特征**: 多周期动量、加速度等
+- **波动率特征**: 多周期波动率
+
+### dataset.py - 数据集构建
+- 构建训练样本（特征 + 标签）
+- 目标变量：次日涨跌幅
+- 数据集划分（时序划分，避免未来数据泄露）
+- 特征标准化（StandardScaler）
+- 数据保存与加载
+
+### model.py - 深度学习模型
+- **模型结构**: 多层全连接神经网络（DNN/MLP）
+- **正则化**: Batch Normalization + Dropout
+- **损失函数**: 自定义损失（MSE + 方向性损失）
+- **优化器**: Adam
+- **回调函数**: 早停、学习率衰减、模型检查点
+- **评估指标**: MAE、RMSE、方向准确率、IC（信息系数）
+
+### predictor.py - 预测与选股
+- 加载训练好的模型
+- 获取候选股票（应用所有筛选条件）
+- 预测次日收益率
+- 排序选择 Top N 股票
+- 添加股票名称、行业等信息
+- 格式化输出
+- 简单回测引擎（验证策略有效性）
+
+### main.py - 程序入口
+- 命令行参数解析
+- 三种运行模式：
+  - `train`: 训练模型
+  - `predict`: 预测选股（默认）
+  - `backtest`: 运行回测
+- 结果保存（CSV 格式）
+
+## 使用注意事项
+
+### 1. 数据时效性
+- 系统使用截止到**前一交易日**的数据进行预测
+- 严禁使用未来数据，确保策略可实际执行
+
+### 2. 选股逻辑
+- 预测次日涨跌幅
+- 选择预测涨幅最高的 10 只股票
+- 过滤涨停、停牌、流动性差的股票
+- 控制波动率，降低风险
+
+### 3. 风险控制
+- 仅供学习研究，不构成投资建议
+- 历史表现不代表未来收益
+- 实盘前请充分回测验证
+- 建议设置止损止盈
+
+### 4. 数据获取
+- 需要 Tushare Pro 账号（免费注册）
+- 注意 API 调用频率限制
+- 建议使用积分账户获取更好的服务
+
+## 性能优化建议
+
+1. **数据缓存**: 将获取的历史数据缓存到本地，避免重复下载
+2. **增量更新**: 只更新最新的交易日数据
+3. **并行处理**: 使用多进程加速数据获取和特征计算
+4. **模型优化**: 调整网络结构、超参数以提升性能
+
+## 扩展功能建议
+
+1. **更多特征**: 添加基本面数据、资金流向、市场情绪等
+2. **模型集成**: 尝试 LSTM、Transformer 等时序模型
+3. **策略优化**: 动态调整仓位、多因子选股等
+4. **完整回测**: 实现更完善的回测引擎（考虑滑点、成本等）
+5. **实盘接口**: 对接券商 API 实现自动交易
+
+## 常见问题
+
+**Q: 训练需要多长时间？**  
+A: 取决于数据量和硬件配置，一般 10-30 分钟。使用 GPU 可大幅加速。
+
+**Q: 预测准确率如何？**  
+A: 量化策略追求长期稳定收益，单次预测准确率不是唯一指标。建议通过回测评估整体表现。
+
+**Q: 可以用于实盘吗？**  
+A: 本项目仅供学习研究。实盘前需要：
+- 充分回测验证
+- 完善风控机制
+- 考虑交易成本
+- 做好资金管理
+
+**Q: 报错 "请在 config.py 中设置 TUSHARE_TOKEN"？**  
+A: 需要注册 Tushare Pro 并在 config.py 中填写您的 Token。
+
+**Q: 报错 "模型文件不存在"？**  
+A: 首次使用需要先运行训练模式：`python main.py --mode train`
+
+## 技术栈
+
+- **数据获取**: Tushare
+- **数据处理**: Pandas, NumPy
+- **特征工程**: Scikit-learn
+- **深度学习**: TensorFlow, Keras
+- **数据可视化**: （可扩展）Matplotlib, Plotly
+
+## 版本历史
+
+- **v4.0** (2026-04-11)
+  - 初始版本
+  - 完整的模块化架构
+  - 深度学习模型
+  - 自动化数据处理和特征工程
+  - 智能选股和风控
+
+## 许可证
+
+MIT License
+
+## 免责声明
+
+本项目仅供学习研究使用，不构成任何投资建议。股市有风险，投资需谨慎。使用本系统产生的任何投资损失，作者不承担任何责任。
 
 ---
 
-**Project Overview: A-Share Ultra-Short-Term Quantitative Trading System**
-
-This project is an end-to-end quantitative trading system designed for China’s A‑share market, focusing on ultra‑short‑term strategies (buy today, sell tomorrow). It employs a hybrid deep learning architecture combining **CNN**, **Bi‑LSTM/GRU**, and **multi‑head self‑attention** to predict the next‑day return of individual stocks. The model takes a 20‑day sliding window of over 80 technical features (price, volume, moving averages, RSI, MACD, Bollinger Bands, ATR, etc.) and outputs a forecasted 1‑day ahead return. A custom composite loss function—integrating MSE, directional accuracy, and ranking loss—optimizes the model to prioritise correct direction and relative ordering among stocks, which is critical for high‑noise, weak‑signal A‑share environments.
-
-The system is fully modular, with separate components for data loading (Tushare API with local caching to avoid rate limits), feature engineering, dataset construction (RobustScaler, temporal splitting), model training (early stopping, learning rate decay, checkpointing), and daily prediction. Real‑time filters exclude ST stocks, delisted shares, suspension, newly listed stocks, illiquid assets, high‑volatility securities, and limit‑up/down stocks to ensure tradability. Every day, the top 10 stocks with the highest predicted returns are recommended. A built‑in backtesting engine validates historical performance using metrics such as direction accuracy, information coefficient (IC), Sharpe ratio, and maximum drawdown. The entire pipeline is implemented in Python with TensorFlow/Keras, Pandas, and Scikit‑learn, and can be executed via a command‑line interface (`train`, `predict`, `backtest` modes). This system demonstrates how advanced deep learning techniques can be applied to extract faint predictive signals from noisy financial time series under strict T+1 settlement rules.
+**如有问题或建议，欢迎提 Issue！**
