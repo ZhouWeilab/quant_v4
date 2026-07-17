@@ -1,0 +1,276 @@
+"""A股超短线量化交易系统全局配置。"""
+
+import os
+
+
+# ==================== Tushare ====================
+def _load_tushare_token():
+    """优先从环境变量读取 Token，其次读取用户私有配置文件。"""
+    token = os.getenv("TUSHARE_TOKEN", "").strip()
+    if token:
+        return token
+
+    token_file = os.path.expanduser(
+        os.getenv("TUSHARE_TOKEN_FILE", "~/.config/quant_v4/tushare_token")
+    )
+    try:
+        with open(token_file, "r", encoding="utf-8") as file:
+            return file.read().strip()
+    except FileNotFoundError:
+        return ""
+
+
+TUSHARE_TOKEN = _load_tushare_token()
+
+
+# ==================== 路径 ====================
+DATA_DIR = "./data"
+MODEL_DIR = "./models"
+CACHE_DIR = "./cache"
+DAILY_CACHE_DIR = os.path.join(DATA_DIR, "daily_cache")
+MODEL_FILE = os.path.join(MODEL_DIR, "quant_model.h5")
+TABULAR_MODEL_FILE = os.path.join(MODEL_DIR, "quant_model_tabular.pkl")
+SCALER_FILE = os.path.join(MODEL_DIR, "scaler.pkl")
+FEATURE_COLS_FILE = os.path.join(MODEL_DIR, "feature_cols.pkl")
+MODEL_META_FILE = os.path.join(MODEL_DIR, "model_meta.json")
+TABULAR_MODEL_META_FILE = os.path.join(MODEL_DIR, "model_meta_tabular.json")
+XGB_MODEL_META_FILE = os.path.join(MODEL_DIR, "model_meta_xgb.json")
+
+for directory in (DATA_DIR, MODEL_DIR, CACHE_DIR, DAILY_CACHE_DIR):
+    os.makedirs(directory, exist_ok=True)
+
+
+# ==================== 数据 ====================
+START_DATE = "20180101"
+END_DATE = None
+RUNTIME_END_DATE = None
+PREDICT_LOOKBACK_DAYS = 260
+LATEST_TRADE_DATE_LOOKBACK_DAYS = 15
+LATEST_DAILY_MIN_ROWS = 100
+
+INCLUDE_MONEYFLOW = True
+INCLUDE_TOP_LIST = True
+INCLUDE_LIMIT_LIST = False
+
+# 价格特征和收益标签使用前复权价格，输出与成交模拟保留原始价格。
+USE_ADJUSTED_PRICES = True
+REQUIRE_ADJ_FACTOR = True
+
+# 训练时纳入历史退市/暂停上市股票，并按每个交易日动态确定可用股票池。
+USE_HISTORICAL_UNIVERSE = True
+USE_HISTORICAL_ST_FILTER = True
+DYNAMIC_STOCK_POOL = True
+
+
+# ==================== 股票池 ====================
+EXCLUDE_ST = True
+EXCLUDE_DELISTED = True
+EXCLUDE_SUSPENDED = False
+EXCLUDE_NEW_STOCK_DAYS = 250
+EXCLUDE_CODE_PREFIXES = ("300", "301")
+STOCK_POOL_LIMIT = 4000
+
+MIN_VOLUME = 0
+MIN_AMOUNT = 0
+MIN_PRICE = 3.0
+MAX_PRICE = 300.0
+MIN_HISTORY_DAYS = 100
+
+EXCLUDE_LIMIT_UP = False
+EXCLUDE_LIMIT_DOWN = False
+LIMIT_THRESHOLD = 0.095
+MAX_VOLATILITY_DAYS = 20
+MAX_VOLATILITY_THRESHOLD = 10000
+STRICT_PREDICT_TRADE_DATE = True
+
+
+# ==================== 特征工程 ====================
+MA_PERIODS = [5, 10, 20, 30, 60]
+VOLUME_MA_PERIODS = [5, 10, 20]
+RSI_PERIOD = 14
+MACD_FAST = 12
+MACD_SLOW = 26
+MACD_SIGNAL = 9
+BOLL_PERIOD = 20
+BOLL_STD = 2
+ATR_PERIOD = 14
+
+FEATURE_SELECTION_ENABLED = True
+FEATURE_SELECTION_MAX_FEATURES = 40
+FEATURE_SELECTION_MIN_ABS_IC = 0.002
+FEATURE_SELECTION_SAMPLE_SIZE = 300000
+FEATURE_SELECTION_MIN_COVERAGE = 0.70
+FEATURE_SELECTION_MIN_NONZERO_RATIO = 0.005
+FEATURE_SELECTION_SUBPERIODS = 3
+FEATURE_SELECTION_MIN_SIGN_STABILITY = 0.67
+FEATURE_SELECTION_CORR_THRESHOLD = 0.85
+FEATURE_SELECTION_CORR_SAMPLE_SIZE = 50000
+EXCLUDE_NONSTATIONARY_FEATURES = True
+
+
+# ==================== 标签与切分 ====================
+SEQUENCE_LENGTH = 20
+FORECAST_HORIZON = 5
+LABEL_ENTRY_SHIFT = 1
+LABEL_EXIT_SHIFT = 6
+TARGET_TYPE = "regression"
+TARGET_NORMALIZATION = "cs_rank"
+TARGET_EXCESS_METHOD = "median"
+TARGET_EXCESS_BETA = 0.5
+TARGET_WINSOR_Q_LOW = 0.01
+TARGET_WINSOR_Q_HIGH = 0.99
+TARGET_ZSCORE_CLIP = 3.0
+
+# 最后的测试集不参与早停和模型选择；边界留出标签持有期，防止标签重叠。
+VALIDATION_SPLIT = 0.15
+TEST_SPLIT = 0.10
+PURGE_DAYS = LABEL_EXIT_SHIFT
+
+
+# ==================== 模型 ====================
+MODEL_TYPE = "CNN+GRU+Attention"
+USE_CNN = True
+CNN_FILTERS = [64, 96, 96]
+CNN_KERNEL_SIZES = [3, 3, 3]
+CNN_POOL_SIZE = 2
+SPATIAL_DROPOUT_RATE = 0.2
+
+USE_LSTM = False
+LSTM_UNITS = [96, 48]
+BIDIRECTIONAL = True
+RETURN_SEQUENCES = True
+RNN_RECURRENT_DROPOUT = 0.0
+
+USE_ATTENTION = True
+NUM_ATTENTION_HEADS = 4
+ATTENTION_KEY_DIM = 24
+
+DENSE_LAYERS = [96, 48, 24]
+DROPOUT_RATE = 0.25
+ACTIVATION = "relu"
+MODEL_LAYERS = [256, 128, 64, 32]
+
+
+# ==================== 训练 ====================
+BATCH_SIZE = 512
+EPOCHS = 40
+LEARNING_RATE = 0.001
+EARLY_STOPPING_PATIENCE = 8
+REDUCE_LR_PATIENCE = 5
+RANDOM_SEED = 42
+
+REGRESSION_LOSS = "cross_sectional_rank"
+HUBER_DELTA = 1.0
+LOSS_MSE_WEIGHT = 0.25
+LOSS_DIRECTION_WEIGHT = 0.0
+LOSS_RANKING_WEIGHT = 1.0
+RANK_PAIR_FRACTIONS = (0.01, 0.05, 0.10, 0.25, 0.50)
+DATE_GROUPED_BATCHES = True
+PRODUCTION_REFIT_EPOCHS = 2
+PRODUCTION_REFIT_LR = 0.0001
+
+VALIDATION_MONITOR = "val_selection_score"
+VALIDATION_MONITOR_MODE = "max"
+VALIDATION_METRIC_MAX_SAMPLES = 300000
+EVAL_TOP_N_LIST = [5, 10, 20]
+SELECTION_TOP_N = 10
+VALIDATION_RETURN_SE_PENALTY = 0.5
+QUANTILE_N = 5
+
+
+# ==================== GPU ====================
+USE_GPU = True
+GPU_ID = 0
+TF_GPU_MEMORY_GROWTH = True
+ENABLE_MIXED_PRECISION = False
+N_JOBS = -1
+
+
+# ==================== 预测与组合 ====================
+TOP_N_STOCKS = 10
+MAX_PREDICTED_STOCKS = 50
+MIN_PREDICTED_PROB = 0.5
+WEEKLY_REBALANCE_WEEKDAYS = [5, 6]
+
+INDUSTRY_MAP = {}
+DEFAULT_SECTOR = "综合其他"
+SECTOR_DEVIATION_LIMIT = 0.03
+MAX_STOCK_WEIGHT = 0.10
+MIN_STOCK_WEIGHT = 0.01
+OPTIMIZATION_METHOD = "equal"
+
+
+# ==================== 回测与交易成本 ====================
+BACKTEST_START_DATE = "20230101"
+BACKTEST_INITIAL_CAPITAL = 1_000_000
+BACKTEST_REBALANCE_DAYS = LABEL_EXIT_SHIFT - LABEL_ENTRY_SHIFT
+BACKTEST_COMMISSION = 0.0003
+BACKTEST_MIN_COMMISSION = 5.0
+BACKTEST_STAMP_DUTY = 0.0005
+BACKTEST_TRANSFER_FEE = 0.00001
+BACKTEST_SLIPPAGE = 0.001
+BACKTEST_MAX_EXIT_DELAY_DAYS = 10
+BACKTEST_MAX_AMOUNT_RATIO = 0.01
+
+SINGLE_STOCK_WEIGHT = 0.10
+STOP_LOSS = -0.05
+TAKE_PROFIT = 0.10
+
+
+# ==================== 因子与基准模型 ====================
+MAD_N = 3
+ZSCORE_WINDOW = 60
+NEUTRALIZE_RIDGE_ALPHA = 1.0
+IC_MIN_PERIODS = 10
+IC_SIGNIFICANCE_THRESHOLD = 0.02
+CORR_THRESHOLD = 0.8
+
+XGB_PARAMS_BASE = {
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "n_estimators": 300,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "min_child_weight": 10,
+    "gamma": 0.1,
+    "random_state": RANDOM_SEED,
+    "n_jobs": -1,
+}
+XGB_EARLY_STOPPING_ROUNDS = 20
+XGB_PREDICT_DEVICE = "cpu"
+
+ROLL_TRAIN_MONTHS = 36
+ROLL_TEST_MONTHS = 3
+ROLL_STEP_MONTHS = 3
+ROLL_VAL_RATIO = 0.15
+WALKFORWARD_MAX_FOLDS = 0
+WALKFORWARD_EPOCHS = 12
+
+# 收益导向模型搜索：所有候选均按样本外扣费后收益比较。
+MODEL_SEARCH_MODELS = ["ridge", "xgb", "mlp"]
+MODEL_SEARCH_TRAIN_MONTHS = [24, 36]
+MODEL_SEARCH_POOL_LIMITS = [1000, 2000]
+MODEL_SEARCH_HOLDING_DAYS = [5, 10]
+MODEL_SEARCH_TOP_N = 10
+MODEL_SEARCH_MAX_FOLDS = 4
+MODEL_SEARCH_STAGE2_CONFIGS = 4
+MODEL_SEARCH_MLP_MAX_SAMPLES = 1000000
+MODEL_SEARCH_PROMOTE_PRODUCTION = True
+MODEL_SEARCH_OUTPUT_DIR = os.path.join(MODEL_DIR, "model_search")
+
+
+# ==================== 快速验证 ====================
+SAMPLE_STOCK_COUNT = 80
+RUNTIME_SAMPLE_STOCK_COUNT = None
+QUICK_START_DATE = "20250101"
+QUICK_EPOCHS = 3
+QUICK_XGB_N_ESTIMATORS = 50
+FETCH_BY_STOCK_THRESHOLD = 200
+
+
+# ==================== 日志与显示 ====================
+LOG_LEVEL = "INFO"
+LOG_FILE = "./trading.log"
+DISPLAY_DECIMAL = 4

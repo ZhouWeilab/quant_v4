@@ -1,242 +1,120 @@
-# A 股超短线量化交易系统 v4.0
+# A 股超短线量化交易系统 v4
 
-基于深度学习的 A 股超短线量化交易系统，使用 DNN/MLP 模型预测次日涨幅，实现今日买入明日卖出的交易策略。
+这是一个面向 A 股横截面选股的研究系统。它使用 Tushare 数据构建量价、技术指标、资金流、龙虎榜和基本面特征，支持 CNN+GRU+Attention 与 XGBoost，并输出每日 Top N 候选股票。
 
-## 项目特点
+当前唯一有效的交易时间轴是：
 
-- ✅ **模块化架构**: 按功能拆分为多个独立模块，代码清晰易维护
-- ✅ **深度学习**: 使用 TensorFlow/Keras 构建 DNN 模型
-- ✅ **严格时序**: 严禁使用未来数据，只使用截止到前一交易日的数据
-- ✅ **多维特征**: 量价、均线、技术指标等 80+ 维特征
-- ✅ **智能选股**: 自动过滤 ST、退市、停牌、次新股等不合格股票
-- ✅ **风控筛选**: 流动性、波动率、涨跌停等多重风控
-- ✅ **回测验证**: 内置简单回测引擎，验证策略有效性
-
-## 项目结构
-
-```
-./
-├── config.py          # 全局配置（Token、参数等）
-├── data_loader.py     # 数据获取与清洗
-├── features.py        # 特征工程
-├── dataset.py         # 数据集构建与标准化
-├── model.py           # 深度学习模型定义与训练
-├── predictor.py       # 预测与选股
-├── main.py            # 程序入口
-├── requirements.txt   # 依赖库
-└── README.md          # 说明文档
+```text
+T 日收盘数据完成 → 生成信号 → T+1 日开盘买入 → T+6 日收盘卖出
 ```
 
-## 快速开始
+标签为 `close(T+6) / open(T+1) - 1`，持有五个交易日。任何修改特征、标签或股票池规则的操作都要求重新训练模型。
 
-### 1. 安装依赖
+## 已实现的关键约束
+
+- 训练、验证和测试按日期顺序划分，并在边界留出标签持有期，避免标签重叠泄露。
+- 训练使用历史时点股票池、历史市值和前复权价格；不使用当前市值回填历史。
+- 特征选择使用逐日横截面 Rank IC，而不是把所有日期混在一起计算相关性。
+- 验证指标包含逐日 Rank IC、ICIR 和 Top N/分位数组合收益。
+- 模型、标准化器、特征顺序和元数据必须匹配；旧模型或标签口径不一致时会拒绝预测。
+- 回测使用次日开盘成交、100 股整数手、滑点、佣金、印花税、过户费和成交额容量限制。
+- 普通回测会拒绝训练期覆盖回测期的前视模型；模型评估优先使用 walk-forward。
+- 行业约束先分散风险；候选行业不足时会按模型排序回补，确保尽量填满 Top N。
+
+## 环境与 Token
+
+安装依赖：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 配置 Tushare Token
-
-在 `config.py` 文件中设置您的 Tushare Token：
-
-```python
-TUSHARE_TOKEN = "your_token_here"
-```
-
-> 获取 Token: https://tushare.pro/register
-
-### 3. 训练模型
-
-首次使用需要先训练模型：
+Tushare Token 不写入源码。任选一种方式配置：
 
 ```bash
-python main.py --mode train
+export TUSHARE_TOKEN="your-token"
 ```
 
-训练过程包括：
-- 获取 A 股历史数据
-- 特征工程（80+ 维特征）
-- 数据标准化
-- 模型训练（带早停和学习率衰减）
-- 模型保存
+或写入私有文件：
 
-### 4. 预测选股
+```text
+~/.config/quant_v4/tushare_token
+```
 
-训练完成后，运行预测获取今日推荐股票：
+服务器当前使用的 Python 环境为：
 
 ```bash
-python main.py --mode predict
+/home/zhouwei/quant_v4/.conda_tf/bin/python
 ```
 
-或直接运行（默认为预测模式）：
+## 常用命令
+
+所有命令都应在服务器项目目录 `/home/zhouwei/quant_v4` 中运行。
 
 ```bash
-python main.py
+# 语法检查
+/home/zhouwei/quant_v4/.conda_tf/bin/python -m py_compile *.py
+
+# 离线测试
+/home/zhouwei/quant_v4/.conda_tf/bin/python test_pipeline.py
+/home/zhouwei/quant_v4/.conda_tf/bin/python test_model.py
+
+# 训练深度学习模型
+/home/zhouwei/quant_v4/.conda_tf/bin/python main.py --mode train
+
+# 训练 XGBoost 基准模型
+/home/zhouwei/quant_v4/.conda_tf/bin/python main.py --mode baseline
+
+# 预测
+/home/zhouwei/quant_v4/.conda_tf/bin/python main.py --mode predict --model dl
+/home/zhouwei/quant_v4/.conda_tf/bin/python main.py --mode predict --model xgb
+
+# 严格的历史区间回测；模型训练截止日必须早于回测起点
+/home/zhouwei/quant_v4/.conda_tf/bin/python main.py --mode backtest --model dl
+
+# 滚动训练、样本外评估
+/home/zhouwei/quant_v4/.conda_tf/bin/python main.py --mode walkforward
+
+# 收益导向模型搜索：模型、训练窗、股票池和持有期统一比较
+/home/zhouwei/quant_v4/.conda_tf/bin/python main.py --mode optimize
+
+# 小样本搜索链路冒烟；不会发布生产模型
+/home/zhouwei/quant_v4/.conda_tf/bin/python main.py --mode optimize --quick --sample-size 80 --start-date 20240101
+
+# 使用通过滚动样本外门槛的表格生产模型预测
+/home/zhouwei/quant_v4/.conda_tf/bin/python main.py --mode predict --model tabular
 ```
 
-输出示例：
-```
-==================================================
-          今日推荐买入股票 (Top 10)
-==================================================
+快速联调可以追加 `--quick --sample-size 80 --no-advanced-data`，但快速结果不能用于实盘判断。
 
-股票代码     股票名称   行业      当前价格   预测涨幅
-000001.SZ   平安银行   银行      12.50     3.45%
-600036.SH   招商银行   银行      35.20     3.12%
-...
-```
+## 模型产物
 
-### 5. 回测（可选）
+深度学习模型需要以下四个相互匹配的文件：
 
-验证策略历史表现：
-
-```bash
-python main.py --mode backtest
+```text
+models/quant_model.h5
+models/scaler.pkl
+models/feature_cols.pkl
+models/model_meta.json
 ```
 
-## 功能模块说明
+XGBoost 需要模型文件、特征列文件和 `models/model_meta_xgb.json`。元数据记录训练截止日、标签价格口径和特征哈希，预测时会严格校验。
 
-### config.py - 配置文件
-- Tushare Token 配置
-- 数据参数（起始日期、存储路径等）
-- 股票筛选参数（过滤条件、流动性要求等）
-- 特征工程参数（均线周期、技术指标参数等）
-- 模型参数（网络结构、训练参数等）
-- 选股参数（推荐数量、预测阈值等）
+`optimize` 会比较 Ridge、XGBoost 和简单 MLP，并搜索24/36个月训练窗、
+流动性 Top 1000/2000 股票池及5/10日持有期。候选只有在多数滚动折
+Rank IC 为正且扣费后 Top 10 收益为正时，才会发布
+`models/quant_model_tabular.pkl` 和 `models/model_meta_tabular.json`。
 
-### data_loader.py - 数据加载
-- 获取 A 股股票列表
-- 获取历史日线数据
-- 过滤 ST、退市、停牌股票
-- 剔除次新股（上市不足 N 天）
-- 流动性筛选（成交量、成交额）
-- 波动率筛选
-- 数据清洗
+本次标签口径已经改变，因此旧模型不会继续被加载。请在正式预测前重新训练，避免把旧模型和新特征流水线混用。
 
-### features.py - 特征工程
-- **价格特征**: 收益率、振幅、上下影线、K线形态等
-- **成交量特征**: 量价关系、成交额变化等
-- **均线特征**: MA5/10/20/30/60、价格与均线偏离度等
-- **技术指标**: RSI、MACD、布林带、ATR 等
-- **动量特征**: 多周期动量、加速度等
-- **波动率特征**: 多周期波动率
+## 评估原则
 
-### dataset.py - 数据集构建
-- 构建训练样本（特征 + 标签）
-- 目标变量：次日涨跌幅
-- 数据集划分（时序划分，避免未来数据泄露）
-- 特征标准化（StandardScaler）
-- 数据保存与加载
+不要只看训练损失或单次方向准确率。至少同时检查：
 
-### model.py - 深度学习模型
-- **模型结构**: 多层全连接神经网络（DNN/MLP）
-- **正则化**: Batch Normalization + Dropout
-- **损失函数**: 自定义损失（MSE + 方向性损失）
-- **优化器**: Adam
-- **回调函数**: 早停、学习率衰减、模型检查点
-- **评估指标**: MAE、RMSE、方向准确率、IC（信息系数）
+- 样本外逐日 Rank IC 的均值、标准差和 ICIR；
+- Top 5/10/20 扣除成本后的平均收益与胜率；
+- 最大回撤、夏普、换手和容量；
+- 不同年份、牛熊市和行业环境下的稳定性；
+- 多个 walk-forward 折是否方向一致。
 
-### predictor.py - 预测与选股
-- 加载训练好的模型
-- 获取候选股票（应用所有筛选条件）
-- 预测次日收益率
-- 排序选择 Top N 股票
-- 添加股票名称、行业等信息
-- 格式化输出
-- 简单回测引擎（验证策略有效性）
-
-### main.py - 程序入口
-- 命令行参数解析
-- 三种运行模式：
-  - `train`: 训练模型
-  - `predict`: 预测选股（默认）
-  - `backtest`: 运行回测
-- 结果保存（CSV 格式）
-
-## 使用注意事项
-
-### 1. 数据时效性
-- 系统使用截止到**前一交易日**的数据进行预测
-- 严禁使用未来数据，确保策略可实际执行
-
-### 2. 选股逻辑
-- 预测次日涨跌幅
-- 选择预测涨幅最高的 10 只股票
-- 过滤涨停、停牌、流动性差的股票
-- 控制波动率，降低风险
-
-### 3. 风险控制
-- 仅供学习研究，不构成投资建议
-- 历史表现不代表未来收益
-- 实盘前请充分回测验证
-- 建议设置止损止盈
-
-### 4. 数据获取
-- 需要 Tushare Pro 账号（免费注册）
-- 注意 API 调用频率限制
-- 建议使用积分账户获取更好的服务
-
-## 性能优化建议
-
-1. **数据缓存**: 将获取的历史数据缓存到本地，避免重复下载
-2. **增量更新**: 只更新最新的交易日数据
-3. **并行处理**: 使用多进程加速数据获取和特征计算
-4. **模型优化**: 调整网络结构、超参数以提升性能
-
-## 扩展功能建议
-
-1. **更多特征**: 添加基本面数据、资金流向、市场情绪等
-2. **模型集成**: 尝试 LSTM、Transformer 等时序模型
-3. **策略优化**: 动态调整仓位、多因子选股等
-4. **完整回测**: 实现更完善的回测引擎（考虑滑点、成本等）
-5. **实盘接口**: 对接券商 API 实现自动交易
-
-## 常见问题
-
-**Q: 训练需要多长时间？**  
-A: 取决于数据量和硬件配置，一般 10-30 分钟。使用 GPU 可大幅加速。
-
-**Q: 预测准确率如何？**  
-A: 量化策略追求长期稳定收益，单次预测准确率不是唯一指标。建议通过回测评估整体表现。
-
-**Q: 可以用于实盘吗？**  
-A: 本项目仅供学习研究。实盘前需要：
-- 充分回测验证
-- 完善风控机制
-- 考虑交易成本
-- 做好资金管理
-
-**Q: 报错 "请在 config.py 中设置 TUSHARE_TOKEN"？**  
-A: 需要注册 Tushare Pro 并在 config.py 中填写您的 Token。
-
-**Q: 报错 "模型文件不存在"？**  
-A: 首次使用需要先运行训练模式：`python main.py --mode train`
-
-## 技术栈
-
-- **数据获取**: Tushare
-- **数据处理**: Pandas, NumPy
-- **特征工程**: Scikit-learn
-- **深度学习**: TensorFlow, Keras
-- **数据可视化**: （可扩展）Matplotlib, Plotly
-
-## 版本历史
-
-- **v4.0** (2026-04-11)
-  - 初始版本
-  - 完整的模块化架构
-  - 深度学习模型
-  - 自动化数据处理和特征工程
-  - 智能选股和风控
-
-## 许可证
-
-MIT License
-
-## 免责声明
-
-本项目仅供学习研究使用，不构成任何投资建议。股市有风险，投资需谨慎。使用本系统产生的任何投资损失，作者不承担任何责任。
-
----
-
-**如有问题或建议，欢迎提 Issue！**
+任何提高收益率的改动，都必须先在未参与训练的时间段验证。历史回测不代表未来收益，本项目不构成投资建议。

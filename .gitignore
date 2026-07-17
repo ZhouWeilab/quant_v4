@@ -1,0 +1,34 @@
+# Python / local environments
+__pycache__/
+*.py[cod]
+.conda_tf/
+.venv/
+venv/
+.env
+.vscode/
+
+# Private credentials
+tushare_token
+*.token
+
+# Market data, caches, trained artifacts and runtime outputs
+data/
+cache/
+models/
+logs/
+*.h5
+*.keras
+*.pkl
+*.log
+*.tmp
+recommendations_*.csv
+factor_report_*.csv
+train_log.txt
+weekly_rebalance.log
+
+# Accidental files created by an unquoted pip command
+1.24.0
+1.3.0
+2.0.0
+2.15.0
+2.8.0

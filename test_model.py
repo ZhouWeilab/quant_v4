@@ -29,7 +29,7 @@ def test_model_build():
         model.build_model()
         model.compile_model()
 
-        print("\n✓ 模型构建成功")
+        print("\n[OK] 模型构建成功")
 
         # 打印模型结构
         print("\n模型结构:")
@@ -39,7 +39,7 @@ def test_model_build():
         return model
 
     except Exception as e:
-        print(f"\n✗ 模型构建失败: {e}")
+        print(f"\n[FAIL] 模型构建失败: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -57,7 +57,7 @@ def test_forward_pass(model):
     n_features = 50
 
     X_dummy = np.random.randn(batch_size, sequence_length, n_features).astype(np.float32)
-    y_dummy = np.random.randn(batch_size).astype(np.float32)
+    y_dummy = np.random.randint(0, 2, size=(batch_size,)).astype(np.float32)
 
     print(f"\n输入数据: X={X_dummy.shape}, y={y_dummy.shape}")
 
@@ -68,11 +68,11 @@ def test_forward_pass(model):
         print(f"输出数据: predictions={predictions.shape}")
         print(f"预测样例: {predictions[:5].flatten()}")
 
-        print("\n✓ 前向传播成功")
+        print("\n[OK] 前向传播成功")
         return True
 
     except Exception as e:
-        print(f"\n✗ 前向传播失败: {e}")
+        print(f"\n[FAIL] 前向传播失败: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -90,10 +90,10 @@ def test_training_step(model):
     n_features = 50
 
     X_train = np.random.randn(n_samples, sequence_length, n_features).astype(np.float32)
-    y_train = np.random.randn(n_samples).astype(np.float32)
+    y_train = np.random.randint(0, 2, size=(n_samples,)).astype(np.float32)
 
     X_val = np.random.randn(50, sequence_length, n_features).astype(np.float32)
-    y_val = np.random.randn(50).astype(np.float32)
+    y_val = np.random.randint(0, 2, size=(50,)).astype(np.float32)
 
     print(f"\n训练数据: X_train={X_train.shape}, y_train={y_train.shape}")
     print(f"验证数据: X_val={X_val.shape}, y_val={y_val.shape}")
@@ -110,13 +110,13 @@ def test_training_step(model):
             verbose=1
         )
 
-        print("\n✓ 训练步骤成功")
+        print("\n[OK] 训练步骤成功")
         print(f"训练历史: {list(history.history.keys())}")
 
         return True
 
     except Exception as e:
-        print(f"\n✗ 训练步骤失败: {e}")
+        print(f"\n[FAIL] 训练步骤失败: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -134,29 +134,29 @@ def test_save_load(model):
         # 保存模型
         print("\n保存模型...")
         model.save(test_model_file)
-        print(f"✓ 模型已保存到: {test_model_file}")
+        print(f"[OK] 模型已保存到: {test_model_file}")
 
         # 加载模型
         print("\n加载模型...")
         new_model = QuantModel()
         new_model.load(test_model_file)
-        print("✓ 模型加载成功")
+        print("[OK] 模型加载成功")
 
         # 测试加载的模型
         X_test = np.random.randn(10, config.SEQUENCE_LENGTH, 50).astype(np.float32)
         predictions = new_model.predict(X_test)
-        print(f"✓ 加载的模型可以正常预测: {predictions.shape}")
+        print(f"[OK] 加载的模型可以正常预测: {predictions.shape}")
 
         # 清理测试文件
         import os
         if os.path.exists(test_model_file):
             os.remove(test_model_file)
-            print(f"✓ 清理测试文件")
+            print(f"[OK] 清理测试文件")
 
         return True
 
     except Exception as e:
-        print(f"\n✗ 保存/加载失败: {e}")
+        print(f"\n[FAIL] 保存/加载失败: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -190,12 +190,12 @@ def test_custom_layers():
 
         print(f"输入形状: {inputs.shape}")
         print(f"输出形状: {outputs.shape}")
-        print("✓ MultiHeadSelfAttention 层工作正常")
+        print("[OK] MultiHeadSelfAttention 层工作正常")
 
         return True
 
     except Exception as e:
-        print(f"\n✗ 自定义层测试失败: {e}")
+        print(f"\n[FAIL] 自定义层测试失败: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -244,9 +244,9 @@ def print_model_config():
 
 def main():
     """主测试流程"""
-    print("\n" + "🔧" * 35)
+    print("\n" + "=" * 70)
     print(" " * 20 + "模型架构测试")
-    print("🔧" * 35)
+    print("=" * 70)
 
     # 打印配置
     print_model_config()
@@ -258,7 +258,7 @@ def main():
     model = test_model_build()
 
     if model is None:
-        print("\n❌ 模型构建失败，跳过后续测试")
+        print("\n[FAIL] 模型构建失败，跳过后续测试")
         return
 
     # 测试前向传播
@@ -285,7 +285,7 @@ def main():
 
     all_passed = True
     for name, result in tests:
-        status = "✓" if result else "✗"
+        status = "[OK]" if result else "[FAIL]"
         print(f"{status} {name}: {'通过' if result else '失败'}")
         if not result:
             all_passed = False
@@ -293,12 +293,12 @@ def main():
     print("=" * 70)
 
     if all_passed:
-        print("\n🎉 所有测试通过！模型架构正确。")
+        print("\n所有测试通过！模型架构正确。")
         print("\n下一步:")
-        print("  1. 在 config.py 中配置 Tushare Token")
+        print("  1. 配置环境变量 TUSHARE_TOKEN 或用户私有 Token 文件")
         print("  2. 运行: python main.py --mode train")
     else:
-        print("\n⚠️  部分测试失败，请检查模型配置。")
+        print("\n部分测试失败，请检查模型配置。")
 
     print()
 

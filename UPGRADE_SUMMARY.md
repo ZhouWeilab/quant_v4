@@ -12,7 +12,7 @@ MODEL_TYPE = "cnn_lstm_attention"  # 或 "dnn"
 
 # 时序窗口
 SEQUENCE_LENGTH = 20  # 使用过去20天的数据
-FORECAST_HORIZON = 1  # 预测次日
+FORECAST_HORIZON = 5  # T+1 开盘买入，T+6 收盘卖出
 
 # CNN 参数
 CNN_FILTERS = [64, 128, 128]

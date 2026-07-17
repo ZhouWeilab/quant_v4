@@ -94,12 +94,13 @@ pip install -r requirements.txt
 
 ### 2. 配置参数
 
-在 `config.py` 中配置：
+通过环境变量或用户私有文件配置 Token；模型参数仍在 `config.py` 中配置：
+
+```bash
+export TUSHARE_TOKEN="your_token_here"
+```
 
 ```python
-# Tushare Token
-TUSHARE_TOKEN = "your_token_here"
-
 # 模型架构
 MODEL_TYPE = "cnn_lstm_attention"  # 或 "dnn"
 SEQUENCE_LENGTH = 20  # 时序窗口长度
@@ -169,7 +170,8 @@ python main.py --mode backtest
 # 对每只股票，使用滑动窗口
 for i in range(len(data) - SEQUENCE_LENGTH + 1):
     X = data[i:i+SEQUENCE_LENGTH]  # 过去20天
-    y = data[i+SEQUENCE_LENGTH-1]['next_return']  # 第20天的次日收益
+    # 标签由 dataset.py 使用下一交易日开盘和第六交易日收盘构造
+    y = data[i+SEQUENCE_LENGTH-1]['target_return']
 ```
 
 ### 2. 数据标准化
@@ -232,7 +234,7 @@ for i in range(len(data) - SEQUENCE_LENGTH + 1):
 4. **T+1 约束**
    - 严格时序划分
    - 只使用前一日数据预测
-   - 次日收益率作为目标
+   - T+1 开盘到 T+6 收盘的五交易日收益率作为目标
 
 ## 📈 性能对比
 
