@@ -6,6 +6,7 @@ __pycache__/
 venv/
 .env
 .vscode/
+tempCodeRunnerFile.py
 
 # Private credentials
 tushare_token
