@@ -9,6 +9,9 @@ import pickle
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge, ElasticNet, LogisticRegression
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import (
     accuracy_score, roc_auc_score, precision_score, recall_score, f1_score,
     mean_squared_error, mean_absolute_error
@@ -346,19 +349,25 @@ class LinearModel:
             self.model_type = 'ridge'
 
         if self.model_type == 'ridge':
-            self.model = Ridge(alpha=self.alpha)
-            self.model.fit(X_train, y_train)
+            estimator = Ridge(alpha=self.alpha)
         elif self.model_type == 'elasticnet':
-            self.model = ElasticNet(alpha=self.alpha, l1_ratio=self.l1_ratio, max_iter=5000)
-            self.model.fit(X_train, y_train)
+            estimator = ElasticNet(
+                alpha=self.alpha, l1_ratio=self.l1_ratio, max_iter=5000
+            )
         elif self.model_type == 'logistic':
-            self.model = LogisticRegression(
+            estimator = LogisticRegression(
                 penalty='l2', C=1.0 / self.alpha, max_iter=1000,
                 random_state=config.RANDOM_SEED, solver='lbfgs'
             )
-            self.model.fit(X_train, y_train)
         else:
             raise ValueError(f"未知模型类型: {self.model_type}")
+
+        self.model = Pipeline([
+            ('impute', SimpleImputer(strategy='median')),
+            ('scale', RobustScaler()),
+            ('model', estimator),
+        ])
+        self.model.fit(X_train, y_train)
 
         # 记录系数
         if hasattr(self.model, 'coef_'):

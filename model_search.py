@@ -12,6 +12,7 @@ from itertools import product
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge
+from sklearn.impute import SimpleImputer
 from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import RobustScaler
@@ -122,6 +123,7 @@ class NetReturnModelSearch:
         y_train = train_df['target'].to_numpy(dtype=np.float32, copy=False)
         if model_name == 'ridge':
             model = Pipeline([
+                ('impute', SimpleImputer(strategy='median')),
                 ('scale', RobustScaler()),
                 ('model', Ridge(alpha=10.0)),
             ])
@@ -133,6 +135,7 @@ class NetReturnModelSearch:
                 train_df, getattr(config, 'MODEL_SEARCH_MLP_MAX_SAMPLES', 0)
             )
             model = Pipeline([
+                ('impute', SimpleImputer(strategy='median')),
                 ('scale', RobustScaler()),
                 ('model', MLPRegressor(
                     hidden_layer_sizes=(64, 32),

@@ -22,6 +22,7 @@ class DatasetBuilder:
         self.feature_engineer = FeatureEngineer()
         self.scaler = None
         self.feature_cols = None
+        self.feature_fill_values = None
         self.use_robust_scaler = use_robust_scaler
 
     @staticmethod
@@ -610,7 +611,9 @@ class DatasetBuilder:
 
         # 璁粌
         scaler_df = train_df.dropna(subset=['target'])
-        X_train = scaler_df[feature_cols]
+        X_train = scaler_df[feature_cols].replace([np.inf, -np.inf], np.nan)
+        self.feature_fill_values = X_train.median(axis=0).fillna(0.0)
+        X_train = X_train.fillna(self.feature_fill_values).fillna(0.0)
         self.scaler.fit(X_train)
 
         print(f"鏍囧噯鍖栧櫒璁粌瀹屾垚锛岀壒寰佹暟閲? {len(feature_cols)}")
@@ -637,7 +640,14 @@ class DatasetBuilder:
 
         # 鏍囧噯鍖栫壒寰佸垪
         self._validate_scaler_features(feature_cols)
-        df[feature_cols] = self.scaler.transform(df[feature_cols])
+        values = df[feature_cols].replace([np.inf, -np.inf], np.nan)
+        fill_values = self.feature_fill_values
+        if fill_values is None:
+            fill_values = pd.Series(0.0, index=feature_cols)
+        elif not isinstance(fill_values, pd.Series):
+            fill_values = pd.Series(fill_values).reindex(feature_cols).fillna(0.0)
+        values = values.fillna(fill_values).fillna(0.0)
+        df[feature_cols] = self.scaler.transform(values)
 
         return df
 
@@ -900,7 +910,10 @@ class DatasetBuilder:
 
         # 淇濆瓨鏍囧噯鍖栧櫒
         with open(scaler_file, 'wb') as f:
-            pickle.dump(self.scaler, f)
+            pickle.dump({
+                'scaler': self.scaler,
+                'feature_fill_values': self.feature_fill_values,
+            }, f)
 
         # 淇濆瓨鐗瑰緛鍒?        with open(feature_cols_file, 'wb') as f:
         with open(feature_cols_file, 'wb') as f:
@@ -923,7 +936,14 @@ class DatasetBuilder:
 
         # 鍔犺浇鏍囧噯鍖栧櫒
         with open(scaler_file, 'rb') as f:
-            self.scaler = pickle.load(f)
+            scaler_artifact = pickle.load(f)
+        if isinstance(scaler_artifact, dict) and 'scaler' in scaler_artifact:
+            self.scaler = scaler_artifact['scaler']
+            self.feature_fill_values = scaler_artifact.get('feature_fill_values')
+        else:
+            # 兼容旧模型产物；旧版预测缺失值按0填充。
+            self.scaler = scaler_artifact
+            self.feature_fill_values = None
 
         # 鍔犺浇鐗瑰緛鍒?        with open(feature_cols_file, 'rb') as f:
         with open(feature_cols_file, 'rb') as f:

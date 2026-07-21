@@ -102,6 +102,29 @@ def test_prediction_scaler_runs_once():
     assert np.all(X[:, -1, 0] >= 10.0)
 
 
+def test_scaler_imputes_and_persists_missing_values():
+    frame = pd.DataFrame({
+        'target': [0.0, 1.0, -1.0, 0.5],
+        'feature_a': [1.0, np.nan, 3.0, np.inf],
+    })
+    builder = DatasetBuilder()
+    builder.fit_scaler(frame, ['feature_a'])
+    transformed = builder.transform_features(frame, ['feature_a'])
+    assert np.isfinite(transformed['feature_a']).all()
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        scaler_file = f'{temp_dir}/scaler.pkl'
+        feature_file = f'{temp_dir}/features.pkl'
+        builder.save_scaler(scaler_file, feature_file)
+        loaded = DatasetBuilder()
+        loaded.load_scaler(scaler_file, feature_file)
+        reloaded = loaded.transform_features(frame, ['feature_a'])
+    assert np.allclose(
+        transformed['feature_a'].values,
+        reloaded['feature_a'].values
+    )
+
+
 def test_purged_train_val_test_split():
     builder = DatasetBuilder()
     dates = pd.date_range('2020-01-01', periods=200, freq='B').strftime('%Y%m%d')
@@ -244,6 +267,18 @@ def test_model_search_prefers_stable_net_return():
     summary = NetReturnModelSearch.summarize(rows)
     assert summary.iloc[0]['model'] == 'ridge'
     assert bool(summary.iloc[0]['accepted'])
+
+
+def test_model_search_ridge_accepts_missing_values():
+    frame = pd.DataFrame({
+        'feature_a': [1.0, np.nan, 3.0, 4.0],
+        'target': [-1.0, -0.5, 0.5, 1.0],
+    })
+    model = NetReturnModelSearch._fit_model(
+        'ridge', frame, frame, ['feature_a']
+    )
+    predictions = model.predict(frame[['feature_a']].values)
+    assert np.isfinite(predictions).all()
 
 
 def test_daily_ic_feature_selection():
@@ -396,6 +431,7 @@ def main():
     tests = [
         test_latest_trade_date_waits_for_daily_publication,
         test_prediction_scaler_runs_once,
+        test_scaler_imputes_and_persists_missing_values,
         test_purged_train_val_test_split,
         test_walkforward_split_keeps_purge_gap,
         test_date_grouped_batches_and_rank_loss,
@@ -405,6 +441,7 @@ def main():
         test_nonstationary_absolute_features_are_excluded,
         test_sparse_event_values_are_not_forward_filled,
         test_model_search_prefers_stable_net_return,
+        test_model_search_ridge_accepts_missing_values,
         test_daily_ic_feature_selection,
         test_top_list_indicator_ignores_sparse_zero_fill,
         test_sector_selection_always_fills_top_n,
